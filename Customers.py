@@ -302,7 +302,7 @@ def find_best_pos(solution, j):
     ans = 100000
     pos = None
     for tmp, route in enumerate(solution.r_list):
-        for i in range(0, route.route_size()):
+        for i in range(0, route.route_size()+1):
             route.set_dis()
             old_dis = route.dis
 
@@ -342,7 +342,7 @@ solution = get_ini_solution()
 solution.set_dis()
 print(solution.get_size())
 dis = solution.dis
-for i in range(10000):
+for i in range(10):
     solution = lns_remove(solution)
     lns_insert(solution, solution.dis)
     solution = result_solution.__deepcopy__()
