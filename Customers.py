@@ -38,8 +38,8 @@ class Route:
         :return: True or False
         """
         self.route_insert(i, j)
-        e_time = self.get_e_time(i)
-        l_time = self.get_l_time(i)
+        e_time = self.get_e_time(i+1)
+        l_time = self.get_l_time(i+1)
         self.c_list.remove(j)
         return (e_time <= l_time) and (self.cap + customers[i].cap < CAPCITY)
 
@@ -58,6 +58,7 @@ class Route:
         """
         if j is 0:
             return customers[j].r_time
+
         return max(self.get_e_time(j - 1) + dis_matrix[self.c_list[j], self.c_list[j - 1]] + customers[self.c_list[j-1]].s_time,
                    customers[self.c_list[j]].r_time)
 
@@ -129,7 +130,7 @@ class Solution:
 
     def remove_useless_route(self):
         for route in self.r_list:
-            if route.route_size()==0:
+            if route.route_size() == 0:
                 del route
 
 
@@ -303,6 +304,7 @@ def find_best_pos(solution, j):
     pos = None
     for tmp, route in enumerate(solution.r_list):
         for i in range(0, route.route_size()+1):
+            print(i)
             route.set_dis()
             old_dis = route.dis
 
@@ -336,6 +338,9 @@ def lns_insert(solution, dis): # 重新插入过程：
         solution.r_list[i].route_insert(j, c)
         lns_insert(solution, dis)
         solution.r_list[i].route_remove(j)
+        
+        
+
 
 
 solution = get_ini_solution()
