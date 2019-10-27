@@ -18,6 +18,7 @@ class Route:
         new_route = Route()
         new_route.c_list = [i for i in self.c_list]
         new_route.dis = self.dis
+        return new_route
 
     def set_dis(self):
         self.dis = 0
@@ -31,15 +32,15 @@ class Route:
 
     def if_insert(self, i, j):
         """
-        能否在j位置插入i号顾客？
-        :param i: 顾客编号
-        :param j: 顾客位置
+        能否在i位置插入j号顾客？
+        :param i: 顾客位置
+        :param j: 顾客编号
         :return: True or False
         """
-        self.route_insert(j, i)
-        e_time = self.get_e_time(j)
-        l_time = self.get_l_time(j)
-        self.c_list.remove(i)
+        self.route_insert(i, j)
+        e_time = self.get_e_time(i)
+        l_time = self.get_l_time(i)
+        self.c_list.remove(j)
         return (e_time <= l_time) and (self.cap + customers[i].cap < CAPCITY)
 
     def if_insert_last(self, i):
@@ -82,13 +83,13 @@ class Route:
         :return:
         """
         self.c_list.insert(i+1, j)
-        self.dis = self.dis - dis_matrix[self.c_list[i], self.c_list[i+2]] + dis_matrix[self.c_list[i]][self.c_list[i+1]] + dis_matrix[self.c_list[i+1],self.c_list[i+2]]
+        self.set_dis()
 
     def route_remove(self, i):
         # 移除route上i号顾客
         tar = self.c_list[i+1]
         self.c_list.remove(tar)
-        self.dis = self.dis - dis_matrix[tar, self.c_list[i]] - dis_matrix[tar, self.c_list[i+1]] + dis_matrix[self.c_list[i], self.c_list[i+1]]
+        self.set_dis()
 
     def route_size(self): # 返回路径中顾客数
         return len(self.c_list)-2
@@ -106,6 +107,7 @@ class Solution:
         new_solution.dis = self.dis
 
     def set_dis(self):
+        self.dis = 0
         for i in self.r_list:
             i.set_dis()
             self.dis += i.dis
@@ -113,6 +115,9 @@ class Solution:
     def print(self):
         for route in self.r_list:
             print(route.c_list)
+
+    def get_size(self):
+        return sum([route.route_size() for route in self.r_list])
 
     def __deepcopy__(self): # colon from a existing solution
         new_solution = Solution()
@@ -122,6 +127,10 @@ class Solution:
         new_solution.dis = self.dis
         return new_solution
 
+    def remove_useless_route(self):
+        for route in self.r_list:
+            if route.route_size()==0:
+                del route
 
 
 # %%
@@ -169,9 +178,7 @@ def read_file(filename):
         line = re.split('(?s)\s+', line)[1:-1]
         if len(line) is 0:
             break
-        print(line)
         c_id, x, y, cap, r_time, d_time, s_time = line
-        print(line)
         customer = Customer(c_id, x, y, cap, r_time, d_time, s_time)
         customers.append(customer)
 
@@ -232,7 +239,6 @@ def get_relation(i, j, solution):
         if i and j in route.c_list:
             v = 0
             break
-
     return 1/(dis_matrix[i][j]/d_max + v)
 
 
@@ -262,7 +268,7 @@ def lns_remove(solution): # remove, and every time remove once
     r = random.randint(0, len(unrelaxed_customers)-1)
     relaxed_customers.append(unrelaxed_customers[r])
     unrelaxed_customers.remove(unrelaxed_customers[r])
-    while len(relaxed_customers) <= P:
+    while len(relaxed_customers) <= P-1:
         r = random.randint(0, len(relaxed_customers)-1)
         rel_cuss = []
         for i in unrelaxed_customers:
@@ -274,10 +280,14 @@ def lns_remove(solution): # remove, and every time remove once
         relaxed_customers.append(rel_cuss[int(num)].c_id)
         unrelaxed_customers.remove(rel_cuss[int(num)].c_id)
         cus_to_remove = rel_cuss[int(num)]
-        print(cus_to_remove.c_id)
         for route in solution.r_list:
             if cus_to_remove.c_id in route.c_list:
                 route.c_list.remove(cus_to_remove.c_id)
+                break
+
+        for route in solution.r_list:
+            if relaxed_customers[0] in route.c_list:
+                route.c_list.remove(relaxed_customers[0])
                 break
     return solution
 
@@ -293,39 +303,50 @@ def find_best_pos(solution, j):
     pos = None
     for tmp, route in enumerate(solution.r_list):
         for i in range(0, route.route_size()):
+            route.set_dis()
             old_dis = route.dis
-            if route.if_insert(i, j ):
-                route.route_insert(i,j)
-                if ans < old_dis - route.dis:
-                    ans = old_dis - route.dis
+
+            if route.if_insert(i, j):
+
+                route.route_insert(i, j)
+                if ans > route.dis - old_dis:
+                    ans = route.dis - old_dis
                     pos = tmp, i
                 route.route_remove(i)
-    return pos, ans
+    if pos is None:
+        print(1)
+    return pos
+
+
+result_solution = None
 
 
 def lns_insert(solution, dis): # 重新插入过程：
-    if relaxed_customers is []:
+
+    global result_solution
+    if len(relaxed_customers) == 0:
+        solution.set_dis()
         if solution.dis < dis:
-            dis = solution.dis
             result_solution = solution.__deepcopy__()
-            return result_solution
     else:
-        r = random.randint(0, len(relaxed_customers)-1)
+        r = random.randrange(0, len(relaxed_customers))
         c = relaxed_customers[r]
         relaxed_customers.remove(c)
         i, j = find_best_pos(solution, c)
-        solution.r_list[i].route.route_insert(j, c)
+        solution.r_list[i].route_insert(j, c)
         lns_insert(solution, dis)
-        solution.r_list[i].route.route_remove(j)
+        solution.r_list[i].route_remove(j)
 
 
 solution = get_ini_solution()
-solution.print()
-solution = lns_remove(solution)
-ans = 0
-for i in solution.r_list:
-    ans += len(i.c_list)
-print(ans)
-solution.print()
-print(relaxed_customers)
-print(find_best_pos(solution,relaxed_customers[0]))
+solution.set_dis()
+print(solution.get_size())
+dis = solution.dis
+for i in range(10000):
+    solution = lns_remove(solution)
+    lns_insert(solution, solution.dis)
+    solution = result_solution.__deepcopy__()
+    solution.remove_useless_route()
+    print(result_solution.dis)
+
+result_solution.print()
