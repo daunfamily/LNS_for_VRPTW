@@ -39,10 +39,9 @@ class Route:
         :return: True or False
         """
         self.route_insert(i, j)
-        e_time = self.get_e_time(i+1)
-        l_time = self.get_l_time(i+1)
+        flag = self.check()
         self.c_list.remove(j)
-        return (e_time <= l_time) and (self.cap + customers[i].cap < CAPCITY)
+        return flag
 
     def if_insert_last(self, i):
         self.route_append(i)
@@ -221,7 +220,7 @@ def read_file(filename):
 
 
 # example:
-read_file('C101.txt')
+read_file('R101.txt')
 
 
 # %%
@@ -294,7 +293,7 @@ relaxed_customers = []
 
 
 def lns_remove(solution): # remove, and every time remove once
-    P = 10
+    P = 5
     global unrelaxed_customers
     global relaxed_customers
 
@@ -354,7 +353,7 @@ def find_best_pos(solution, j):
                 if ans > route.dis - old_dis:
                     ans = route.dis - old_dis
                     pos = Pos(tmp, i)
-            route.route_remove(i)
+            route.c_list.remove(j)
     return pos
 
 
@@ -367,31 +366,33 @@ def find_all_pos(solution, j, dis):
                 solution.set_dis()
                 flag = True
                 lns_all_insert(solution, dis)
-                route.route_remove(i)
+                route.c_list.remove(j)
     if not flag:
         route = Route()
         route.route_append(j)
         solution.r_list.append(route)
+        i = len(solution.r_list)-1
         solution.set_dis()
         lns_all_insert(solution, dis)
-        solution.r_list.remove(route)
-
-
-result_solution = None
+        solution.r_list[i].c_list.remove(j)
+    relaxed_customers.append(j)
 
 
 def lns_all_insert(solution,dis):
+    solution.set_dis()
     global result_solution
     if solution.dis > dis:
         return
     if len(relaxed_customers) == 0:
         solution.set_dis()
-        result_solution = solution.__deepcopy__()
+        if solution.dis < result_solution.dis:
+            result_solution = solution.__deepcopy__()
     else:
         r = random.randrange(0, len(relaxed_customers))
         c = relaxed_customers[r]
-        find_all_pos(solution, c, dis)
         relaxed_customers.remove(c)
+        find_all_pos(solution, c, dis)
+
 
 
 def lns_best_insert(solution, dis): # 重新插入过程：
@@ -425,18 +426,15 @@ solution = get_ini_solution()
 solution.print()
 solution.plot()
 solution.set_dis()
+result_solution = solution.__deepcopy__()
 
 
-
-for i in range(10000):
-    new_solution = solution.__deepcopy__()
+for i in range(1000):
     solution = lns_remove(solution)
-    lns_best_insert(solution, solution.dis)
-    if new_solution.dis > result_solution.dis:
-        solution = result_solution
-    else:
-        solution = new_solution
-    print(solution.dis)
+    lns_all_insert(solution, solution.dis)
+    solution = result_solution.__deepcopy__()
+    print(result_solution.dis)
+    print(result_solution.get_size())
 
 solution.print()
 solution.r_list[0].plot()
