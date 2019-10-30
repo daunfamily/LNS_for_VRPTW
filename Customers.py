@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import matplotlib.pyplot as plt
 CAPCITY = 0
 customers = []
 dis_matrix = None
@@ -106,7 +107,7 @@ class Route:
     def check_t(self):
         time = 0
         for tmp in range(len(self.c_list)-1):
-            time = max(dis_matrix[self.c_list[tmp], self.c_list[tmp+1]]+time, customers[self.c_list[tmp+1]].r_time)
+            time = max(dis_matrix[self.c_list[tmp], self.c_list[tmp+1]] + time, customers[self.c_list[tmp+1]].r_time)
             if time > customers[self.c_list[tmp+1]].d_time:
                 return False
             time += customers[self.c_list[tmp+1]].s_time
@@ -115,8 +116,15 @@ class Route:
     def check(self):
         return self.check_c() and self.check_t()
 
-
-# %%
+    def plot(self):
+        x = []
+        y = []
+        for i in self.c_list:
+            x.append(customers[i].x)
+            y.append(customers[i].y)
+        for i in range(len(x)):
+            plt.scatter(x[i], y[i], color='r')
+        plt.plot(x, y)
 
 
 class Solution:
@@ -156,6 +164,11 @@ class Solution:
             if route.route_size() == 0:
                 del route
 
+    def plot(self):
+        plt.figure()
+        for route in self.r_list:
+            route.plot()
+        plt.show()
 
 # %%
 
@@ -281,7 +294,7 @@ relaxed_customers = []
 
 
 def lns_remove(solution): # remove, and every time remove once
-    P = 25
+    P = 10
     global unrelaxed_customers
     global relaxed_customers
 
@@ -315,8 +328,8 @@ def lns_remove(solution): # remove, and every time remove once
                 break
     return solution
 
-class Pos:
 
+class Pos:
     def __init__(self, route, post):
         self.route_num = route
         self.pos = post
@@ -336,20 +349,52 @@ def find_best_pos(solution, j):
         for i in range(0, route.route_size()+1):
             route.set_dis()
             old_dis = route.dis
-            if route.if_insert(i, j):
-                route.route_insert(i, j)
+            route.route_insert(i, j)
+            if route.check():
                 if ans > route.dis - old_dis:
                     ans = route.dis - old_dis
                     pos = Pos(tmp, i)
-
-                route.route_remove(i)
+            route.route_remove(i)
     return pos
+
+
+def find_all_pos(solution, j, dis):
+    flag = False
+    for tmp, route in enumerate(solution.r_list):
+        for i in range(0, route.route_size()+1):
+            if route.if_insert(i, j):
+                route.route_insert(i, j)
+                solution.set_dis()
+                flag = True
+                lns_all_insert(solution, dis)
+                route.route_remove(i)
+    if not flag:
+        route = Route()
+        route.route_append(j)
+        solution.r_list.append(route)
+        solution.set_dis()
+        lns_all_insert(solution, dis)
+        solution.r_list.remove(route)
 
 
 result_solution = None
 
 
-def lns_insert(solution, dis): # 重新插入过程：
+def lns_all_insert(solution,dis):
+    global result_solution
+    if solution.dis > dis:
+        return
+    if len(relaxed_customers) == 0:
+        solution.set_dis()
+        result_solution = solution.__deepcopy__()
+    else:
+        r = random.randrange(0, len(relaxed_customers))
+        c = relaxed_customers[r]
+        find_all_pos(solution, c, dis)
+        relaxed_customers.remove(c)
+
+
+def lns_best_insert(solution, dis): # 重新插入过程：
 
     global result_solution
     if len(relaxed_customers) == 0:
@@ -364,6 +409,7 @@ def lns_insert(solution, dis): # 重新插入过程：
         if pos is None:
             route = Route()
             route.c_list = [0, c, 0]
+            route.set_dis()
             solution.r_list.append(route)
             i = len(solution.r_list) - 1
             j = 0
@@ -371,26 +417,29 @@ def lns_insert(solution, dis): # 重新插入过程：
             i = pos.route_num
             j = pos.pos
             solution.r_list[i].route_insert(j, c)
-        lns_insert(solution, dis)
+        lns_best_insert(solution, dis)
         solution.r_list[i].route_remove(j)
         
-        
-
-
 
 solution = get_ini_solution()
 solution.print()
+solution.plot()
 solution.set_dis()
-print(solution.get_size())
-dis = solution.dis
-print(dis)
-for i in range(1000):
+
+
+
+for i in range(10000):
     new_solution = solution.__deepcopy__()
     solution = lns_remove(solution)
-    lns_insert(solution, solution.dis)
-    if new_solution.dis < solution.dis:
+    lns_best_insert(solution, solution.dis)
+    if new_solution.dis > result_solution.dis:
+        solution = result_solution
+    else:
         solution = new_solution
     print(solution.dis)
 
+solution.print()
+solution.r_list[0].plot()
+print(solution.get_size())
+solution.plot()
 
-result_solution.print()
