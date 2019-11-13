@@ -220,7 +220,7 @@ def read_file(filename):
 
 
 # example:
-read_file('R101.txt')
+read_file('C101.txt')
 
 
 # %%
@@ -293,7 +293,7 @@ relaxed_customers = []
 
 
 def lns_remove(solution): # remove, and every time remove once
-    P = 5
+    P = 20
     global unrelaxed_customers
     global relaxed_customers
 
@@ -354,7 +354,7 @@ def find_best_pos(solution, j):
                     ans = route.dis - old_dis
                     pos = Pos(tmp, i)
             route.c_list.remove(j)
-    return pos
+    return pos,ans
 
 
 def find_all_pos(solution, j, dis):
@@ -396,17 +396,26 @@ def lns_all_insert(solution,dis):
 
 
 def lns_best_insert(solution, dis): # 重新插入过程：
-
+    solution.set_dis()
+    if solution.dis > dis:
+        return
     global result_solution
     if len(relaxed_customers) == 0:
         solution.set_dis()
         result_solution = solution.__deepcopy__()
     else:
-
-        r = random.randrange(0, len(relaxed_customers))
-        c = relaxed_customers[r]
+        old_ans = 100000
+        pos = None
+        c = relaxed_customers[0]
+        for i in relaxed_customers:
+            old_pos, ans = find_best_pos(solution, i)
+            if ans < old_ans:
+                pos = old_pos
+                old_ans = ans
+                c = i
         relaxed_customers.remove(c)
-        pos = find_best_pos(solution, c)
+#        r = random.randrange(0, len(relaxed_customers))
+#       c = relaxed_customers[r]
         if pos is None:
             route = Route()
             route.c_list = [0, c, 0]
@@ -429,13 +438,13 @@ solution.set_dis()
 result_solution = solution.__deepcopy__()
 
 
-for i in range(1000):
+for i in range(20000):
     solution = lns_remove(solution)
-    lns_all_insert(solution, solution.dis)
+    lns_best_insert(solution, solution.dis)
     solution = result_solution.__deepcopy__()
-    print(result_solution.dis)
-    print(result_solution.get_size())
-
+    print(i)
+    print(solution.dis)
+    relaxed_customers.clear()
 solution.print()
 solution.r_list[0].plot()
 print(solution.get_size())
