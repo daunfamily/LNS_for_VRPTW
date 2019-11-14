@@ -204,7 +204,7 @@ def read_file(filename):
     """
     read_file
     :param filename: Solomon
-    :return: None
+    :return: NoneR
     """
     f = open(filename)
     global CAPCITY, customers
@@ -218,9 +218,8 @@ def read_file(filename):
         customer = Customer(c_id, x, y, cap, r_time, d_time, s_time)
         customers.append(customer)
 
-
 # example:
-read_file('C101.txt')
+read_file('R101.txt')
 
 
 # %%
@@ -292,11 +291,31 @@ unrelaxed_customers = []
 relaxed_customers = []
 
 
-def lns_remove(solution): # remove, and every time remove once
+def lns_remove_random(solution):
+    global unrelaxed_customers
+    global relaxed_customers
+    P = 10
+    unrelaxed_customers = []
+    relaxed_customers = []
+    for route in solution.r_list: # 最开始都在unrelaxed中
+        unrelaxed_customers += route.c_list[1:-1]
+    while len(relaxed_customers) < P:
+        r = random.randint(0, len(unrelaxed_customers) - 1)
+        relaxed_customers.append(unrelaxed_customers[r])
+        unrelaxed_customers.remove(unrelaxed_customers[r])
+        for route in solution.r_list:
+            for i in route.c_list:
+                if i in relaxed_customers:
+                    route.c_list.remove(i)
+    return solution
+
+
+def lns_remove_relation(solution): # remove, and every time remove once
     P = 20
     global unrelaxed_customers
     global relaxed_customers
-
+    for route in solution.r_list: # 最开始都在unrelaxed中
+        unrelaxed_customers += route.c_list[1:-1]
     unrelaxed_customers = []
     relaxed_customers = []
     for route in solution.r_list: # 最开始都在unrelaxed中
@@ -363,7 +382,7 @@ def find_all_pos(solution, j, dis):
         for i in range(0, route.route_size()+1):
             if route.if_insert(i, j):
                 route.route_insert(i, j)
-                solution.set_dis()
+                # solution.set_dis()
                 flag = True
                 lns_all_insert(solution, dis)
                 route.c_list.remove(j)
@@ -372,10 +391,35 @@ def find_all_pos(solution, j, dis):
         route.route_append(j)
         solution.r_list.append(route)
         i = len(solution.r_list)-1
-        solution.set_dis()
+        # solution.set_dis()
         lns_all_insert(solution, dis)
         solution.r_list[i].c_list.remove(j)
     relaxed_customers.append(j)
+
+"""
+def find_route_best_pos(route,i):
+    ans = 100000
+    for j in range(route.route_size()+1):
+        if route.if_insert(i, j):
+            dis = route.dis
+            route.route_insert(i, j)
+            route.set_dis()
+            if ans > dis - route.dis:
+                ans = dis
+
+            route.c_list.remove(j)
+
+def get_regret_value(solution, i): # get the regret value
+
+
+def lns_regret_insert(solution, dis):
+    solution.set_dis()
+    global result_solution
+    if solution.dis > dis:
+        return
+
+"""
+
 
 
 def lns_all_insert(solution,dis):
@@ -394,41 +438,48 @@ def lns_all_insert(solution,dis):
         find_all_pos(solution, c, dis)
 
 
-
 def lns_best_insert(solution, dis): # 重新插入过程：
     solution.set_dis()
+    global relaxed_customers
     if solution.dis > dis:
         return
     global result_solution
-    if len(relaxed_customers) == 0:
-        solution.set_dis()
+    if solution.get_size() == 100:
         result_solution = solution.__deepcopy__()
     else:
+        con = []
         old_ans = 100000
-        pos = None
-        c = relaxed_customers[0]
-        for i in relaxed_customers:
-            old_pos, ans = find_best_pos(solution, i)
-            if ans < old_ans:
-                pos = old_pos
-                old_ans = ans
-                c = i
-        relaxed_customers.remove(c)
+
+        while len(relaxed_customers) != 0:
+            c = relaxed_customers[0]
+            for i in relaxed_customers:
+                old_pos, ans = find_best_pos(solution, i)
+                if ans < old_ans:
+                    old_ans = ans
+                    c = i
+            relaxed_customers.remove(c)
+            con.append(c)
+        relaxed_customers += con
 #        r = random.randrange(0, len(relaxed_customers))
 #       c = relaxed_customers[r]
-        if pos is None:
-            route = Route()
-            route.c_list = [0, c, 0]
-            route.set_dis()
-            solution.r_list.append(route)
-            i = len(solution.r_list) - 1
-            j = 0
-        else:
-            i = pos.route_num
-            j = pos.pos
-            solution.r_list[i].route_insert(j, c)
-        lns_best_insert(solution, dis)
-        solution.r_list[i].route_remove(j)
+        for c in range(len(relaxed_customers)):
+            cus = relaxed_customers[c]
+            pos,_ = find_best_pos(solution,relaxed_customers[c])
+            relaxed_customers.remove(cus)
+            if pos is None:
+                route = Route()
+                route.c_list = [0, c, 0]
+                route.set_dis()
+                solution.r_list.append(route)
+                i = len(solution.r_list) - 1
+                j = 0
+            else:
+                i = pos.route_num
+                j = pos.pos
+                solution.r_list[i].route_insert(j, c)
+            lns_best_insert(solution, result_solution.dis)
+            solution.r_list[i].route_remove(j)
+            relaxed_customers.append(cus)
         
 
 solution = get_ini_solution()
@@ -439,9 +490,11 @@ result_solution = solution.__deepcopy__()
 
 
 for i in range(20000):
-    solution = lns_remove(solution)
-    lns_best_insert(solution, solution.dis)
+    dis = solution.dis
+    solution = lns_remove_random(solution)
+    lns_best_insert(solution, dis)
     solution = result_solution.__deepcopy__()
+
     print(i)
     print(solution.dis)
     relaxed_customers.clear()
